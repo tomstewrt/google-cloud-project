@@ -7,26 +7,47 @@ import google.oauth2.id_token
 
 app = Flask(__name__)
 datastore_client = datastore.Client()
+firebase_request_adapter = requests.Request()
 
 @app.route('/')
 def root():
-    # Store the currrent access time in Datastore.
-    store_time(datetime.datetime.now())
-    # Fetch the most recent 10 access times from Datastore.
-    times = fetch_times(10)
+    # Verify Firebase auth.
+    id_token = request.cookies.get('token')
+    error_message = None
+    claims = None
+    times = None
 
-    return render_template('index.html', times=times)
+    if id_token:
+        try:
+            # Verify the token against the Firebase Auth API. This example
+            # verifies the token on each page load. For improved performance,
+            # some applications may wish to cache results in an encrypted
+            # session store (see for instance
+            # http://flask.pocoo.org/docs/1.0/quickstart/#sessions).
+            claims = google.oauth2.id_token.verify_firebase_token(
+                id_token, firebase_request_adapter)
 
-def store_time(dt):
-    entity = datastore.Entity(key=datastore_client.key('visit'))
+            store_time(claims['email'], datetime.datetime.now())
+            times = fetch_times(claims['email'], 10)
+        except ValueError as exc:
+            # This will be raised if the token is expired or any other 
+            # verification checks fail
+            error_message = str(exc)     
+    
+    return render_template('index.html', user_data=claims, 
+    times=times, error_message=error_message)
+
+def store_time(email, dt):
+    entity = datastore.Entity(key=datastore_client.key('User', email, 'visit'))
     entity.update({
         'timestamp': dt
     })
 
     datastore_client.put(entity)
 
-def fetch_times(limit):
-    query = datastore_client.query(kind='visit')
+def fetch_times(email, limit):
+    ancestor = datastore_client.key('User', email)
+    query = datastore_client.query(kind='visit', ancestor=ancestor) 
     query.order = ['-timestamp']
 
     times = query.fetch(limit=limit)

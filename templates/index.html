@@ -4,14 +4,52 @@
   <title>Datastore and Firebase Auth Example</title>
   <script src="{{ url_for('static', filename='script.js') }}"></script>
   <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://www.gstatic.com/firebasejs/ui/4.4.0/firebase-ui-auth.js"></script>
+<link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/4.4.0/firebase-ui-auth.css" />
 </head>
 <body>
+  <h1>Datastore and Firebase Auth Example</h1>
 
-  <h1>Datastore Example</h1>
+  <div id="firebaseui-auth-container"></div>
 
-  <h2>Last 10 visits</h2>
-  {% for time in times %}  <p>{{ time['timestamp'] }}</p>
-  {% endfor %}
+  <button id="sign-out" hidden=true>Sign Out</button>
 
+  <div id="login-info" hidden=true>
+    <h2>Login info:</h2>
+    {% if user_data %}
+      <dl>
+        <dt>Name</dt><dd>{{ user_data['name'] }}</dd>
+        <dt>Email</dt><dd>{{ user_data['email'] }}</dd>
+        <dt>Last 10 visits</dt><dd>
+          {% for time in times %}
+            <p>{{ time['timestamp'] }}</p>
+          {% endfor %} </dd>
+      </dl>
+    {% elif error_message %}
+      <p>Error: {{ error_message }}</p>
+    {% endif %}
+  </div>
+  <!-- The core Firebase JS SDK is always required and must be listed first -->
+  <script src="https://www.gstatic.com/firebasejs/8.0.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/7.8.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.0.1/firebase-analytics.js"></script>
+
+  <script>
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    var firebaseConfig = {
+      apiKey: "AIzaSyAqZioEXn8x5cY7gxuk7p8krdeKNshA14M",
+      authDomain: "bright-cabinet-294816.firebaseapp.com",
+      databaseURL: "https://bright-cabinet-294816.firebaseio.com",
+      projectId: "bright-cabinet-294816",
+      storageBucket: "bright-cabinet-294816.appspot.com",
+      messagingSenderId: "324165056060",
+      appId: "1:324165056060:web:20b44cb6beb05ced243539",
+      measurementId: "G-D97721SWQS"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    firebase.analytics();
+  </script>
 </body>
 </html>
