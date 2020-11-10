@@ -1,0 +1,52 @@
+{% include 'header.html' %}
+<h2>Gallery Upload</h2>
+<div id="firebaseui-auth-container"></div>
+<p>{{ error_message }}</p>
+<div class="mainDiv container">
+    <h4 class="text-center">Firebase File Upload</h4>
+    <div class="row">
+        <form class="col-8 mx-auto">
+            <div class="form-group">
+                <label for="title-input">Title</label>
+                <input type="text" class="form-control" id="title-input" aria-describedby="emailHelp"
+                    placeholder="Title">
+            </div>
+            <div class="form-group">
+                <label class="" for="description-input">Description</label>
+                <input type="text" class="form-control" id="description-input" placeholder="Password">
+                <small id="desc-brief" class="form-text text-muted">Brief description of the photo, max 100
+                    letters.</small>
+            </div>
+            <input type="file" id="fileButton" class="form-control" value="upload" />
+            <button type="submit" class="m-2 btn btn-primary">Submit</button>
+        </form>
+    </div>
+</div>
+
+<!-- The core Firebase JS SDK is always required and must be listed first -->
+
+
+<script src="https://www.gstatic.com/firebasejs/7.13.1/firebase-storage.js"></script>
+
+<script>
+    // Your web app's Firebase configuration
+    var firebaseConfig = {
+        apiKey: "AIzaSyAqZioEXn8x5cY7gxuk7p8krdeKNshA14M",
+        authDomain: "bright-cabinet-294816.firebaseapp.com",
+        databaseURL: "https://bright-cabinet-294816.firebaseio.com",
+        projectId: "bright-cabinet-294816",
+        storageBucket: "gs://bright-cabinet-294816.appspot.com",
+        messagingSenderId: "324165056060",
+        appId: "1:324165056060:web:20b44cb6beb05ced243539",
+        measurementId: "G-D97721SWQS"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    firebase.analytics();
+
+   // Get a reference to the storage service, which is used to create references in your storage bucket
+   //var storage = firebase.storage();
+</script>
+<script src="{{ url_for('static', filename='upload.js') }}"></script>
+
+{% include 'footer.html' %}
