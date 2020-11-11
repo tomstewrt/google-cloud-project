@@ -1,20 +1,40 @@
 import datetime
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, flash, Markup
 from google.auth.transport import requests
 from google.cloud import datastore
 import google.oauth2.id_token
+import pymongo
+import base64
+from bson.json_util import dumps
+import os
+from google.cloud import secretmanager
 
 
 app = Flask(__name__)
+app.secret_key = "saAdaSdjyauWKkeadvf"
 datastore_client = datastore.Client()
 firebase_request_adapter = requests.Request()
+# set-up mongoDB connection
+# use secret manager for a more secure connection.
+secrets = secretmanager.SecretManagerServiceClient()
+url = secrets.access_secret_version(
+    "projects/324165056060/secrets/MongoDB-Connection/versions/1"
+).payload.data.decode("utf-8")
+# make sure url exists
+if not url:
+    flash("Error: failed to get mongoDB connection string", "danger")
+else:
+    # set-up client object and connect to cluster using url
+    client = pymongo.MongoClient(url)
+
+# connect to the db
+db = client.advancedDev
 
 
 @app.route("/")
 def root():
     # Verify Firebase auth.
     id_token = request.cookies.get("token")
-    error_message = None
     claims = None
     time = None
 
@@ -32,11 +52,9 @@ def root():
         except ValueError as exc:
             # This will be raised if the token is expired or any other
             # verification checks fail
-            error_message = str(exc)
+            flash(str(exc), "danger")
 
-    return render_template(
-        "index.html", user_data=claims, time=time, error_message=error_message
-    )
+    return render_template("index.html", user_data=claims, time=time)
 
 
 def update_time(entity, time):
@@ -67,13 +85,17 @@ def fetch_time(email):
     return time
 
 
+# Prevent invalid format's for security purposes. No html/php files etc..
+IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
+
 # [START upload file code]
-@app.route("/uploadfile")
+@app.route("/uploadfile", methods=["GET", "POST"])
 def upload_file():
     # Verify Firebase auth.
     id_token = request.cookies.get("token")
-    error_message = None
     claims = None
+    # new_post is for when an upload has been made, to show the view post link
+    new_post_url = None
 
     if id_token:
         try:
@@ -88,22 +110,82 @@ def upload_file():
         except ValueError as exc:
             # This will be raised if the token is expired or any other
             # verification checks fail.
-            error_message = str(exc)
+            flash(str(exc), "danger")
     else:
         return redirect("/")
+    if request.method == "POST":
+        title = request.form["title"]
+        description = request.form["description"]
+        if title == None or description == None or "file" not in request.files:
+            flash(
+                "Error, there was an issue with one of your inputs, all fields must be filled out. Please try again.",
+                "danger",
+            )
+            return redirect(request.url)
+        else:
+            file = request.files["file"]
+            # Check if the file has a name
+            if file.filename == "":
+                flash("Error, no selected file.", "danger")
+                return redirect(request.url)
+            # Check if file is an image
+            if not allowed_file(file.filename):
+                flash(
+                    "Error, invalid file uploaded, must be png, jpg or jpeg.", "danger"
+                )
+                return redirect(request.url)
+
+            image_path = ""
+            gallery_post = {
+                "email": claims["email"],
+                "title": title,
+                "description": description,
+                "imagePath": image_path,
+            }
+            post_id = db.gallery.insert_one(gallery_post).inserted_id
+            message = Markup(
+                'Successfully uploaded your photo to our gallery. Click <a href="/gallery/'
+                + str(post_id)
+                + '"><b>here</b></a> to view it.'
+            )
+            flash(
+                message,
+                "success",
+            )
+            new_post = True
+            return redirect(request.url)
 
     return render_template(
-        "uploadfile.html", user_data=claims, error_message=error_message
+        "uploadfile.html",
+        user_data=claims,
+        new_post_url=new_post_url,
     )
 
 
+# Check if an allowed file extension
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in IMAGE_EXTENSIONS
+
+
+# [END upload form code]
+
+# [START upload post request]
+
+# [START gallery view code]
 @app.route("/gallery")
 def gallery():
     # Get paged gallery data and display to users
     id_token = request.cookies.get("token")
-    error_message = None
     claims = None
     results = None
+    items_per_page = 9
+    page = 1
+    # Set the page number to 1, unless its already been
+    if request.args["page"] != None:
+        page = request.args["page"]
+    # Check the page number is more than 0
+    if page <= 0:
+        page = 1
 
     if id_token:
         try:
@@ -118,19 +200,33 @@ def gallery():
         except ValueError as exc:
             # This will be raised if the token is expired or any other
             # verification checks fail.
-            error_message = str(exc)
+            flash(str(exc), "danger")
     else:
         return redirect("/")
 
-    query = datastore_client.query(kind="gallery")
-    results = query.fetch()
+    start_num = 0
+    end_num = items_per_page
+    # If this isn't the first page set
+    if page != 1:
+        start_num = (page - 1) * items_per_page + 1
+        end_num = page * items_per_page
+    # Fetch the gallery results for this page from mongo
+    results = db.gallery.find()[start_num:end_num]
 
-    render_template(
-        "gallery.html", user_data=claims, error_message=error_message, results=results
-    )
+    return render_template("gallery.html", user_data=claims, results=results)
 
 
-# [END upload file code]
+# [END gallery view code]
+
+# [START individual gallery post view ]
+
+
+@app.route("gallery/<post-id>")
+def gallery_post(post_id):
+    post_id = 0
+
+
+# [END individual gallery post view ]
 
 if __name__ == "__main__":
     # Used when running locally only, when deploying to GAE a webserver serves the app

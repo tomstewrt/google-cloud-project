@@ -1,10 +1,10 @@
 {% include 'header.html' %}
 
-<h1>Home Page</h1>
+<h1 class="text-center">Home Page</h1>
 
 <div id="firebaseui-auth-container"></div>
 
-<div id="login-info" hidden=true>
+<div id="login-info" class="text-center" hidden=true>
   <h2>Login info:</h2>
   {% if user_data %}
   <dl>
@@ -16,9 +16,6 @@
     <dd>
       <p>{{ time['timestamp'] }}</p>
   </dl>
-  {% elif error_message %}
-  <p>Error: {{ error_message }}</p>
-  {% endif %}
 </div>
 <!-- The core Firebase JS SDK is always required and must be listed first -->
 <script src="https://www.gstatic.com/firebasejs/8.0.1/firebase-app.js"></script>

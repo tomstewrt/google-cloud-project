@@ -1,8 +1,22 @@
 {% include 'header.html' %}
 
 <div class="container">
-    <h1>Gallery</h1>
+    <h1 class="text-center">Gallery</h1>
+    {% if results.count() > 0 %}
+    <div class="row">
+        <div class="col-4">
+            <div class="container">
+                <img src="" alt="">
+            </div>
+        </div>
+        <div class="col-4">
 
+        </div>
+        <div class="col-4">
+
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 {% include 'footer.html' %}

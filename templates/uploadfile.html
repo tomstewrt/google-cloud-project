@@ -1,24 +1,24 @@
 {% include 'header.html' %}
-<h2>Gallery Upload</h2>
+<h2 class="text-center">Gallery Upload</h2>
 <div id="firebaseui-auth-container"></div>
-<p>{{ error_message }}</p>
 <div class="mainDiv container">
     <h4 class="text-center">Firebase File Upload</h4>
     <div class="row">
-        <form class="col-8 mx-auto">
+        <form action="/uploadfile" method="POST" class="col-8 mx-auto" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="title-input">Title</label>
-                <input type="text" class="form-control" id="title-input" aria-describedby="emailHelp"
-                    placeholder="Title">
+                <input type="text" class="form-control" name="title" required id="title-input"
+                    aria-describedby="emailHelp" placeholder="Title">
             </div>
             <div class="form-group">
                 <label class="" for="description-input">Description</label>
-                <input type="text" class="form-control" id="description-input" placeholder="Password">
+                <input type="text" class="form-control" name="description" required id="description-input"
+                    placeholder="Description">
                 <small id="desc-brief" class="form-text text-muted">Brief description of the photo, max 100
                     letters.</small>
             </div>
-            <input type="file" id="fileButton" class="form-control" value="upload" />
-            <button type="submit" class="m-2 btn btn-primary">Submit</button>
+            <input type="file" id="file-input" required class="form-control" value="upload" name="file" />
+            <div class="text-right"><button type="submit" class="m-2 btn btn-primary">Submit</button></div>
         </form>
     </div>
 </div>
