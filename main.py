@@ -1,14 +1,16 @@
 import datetime
 from flask import Flask, render_template, request, redirect, flash, Markup
 from google.auth.transport import requests
-from google.cloud import datastore
+from google.cloud import datastore, storage
+from firebase import firebase
 import google.oauth2.id_token
 import pymongo
 import base64
+from bson import ObjectId
 from bson.json_util import dumps
 import os
 from google.cloud import secretmanager
-
+from google import auth
 
 app = Flask(__name__)
 app.secret_key = "saAdaSdjyauWKkeadvf"
@@ -17,15 +19,24 @@ firebase_request_adapter = requests.Request()
 # set-up mongoDB connection
 # use secret manager for a more secure connection.
 secrets = secretmanager.SecretManagerServiceClient()
-url = secrets.access_secret_version(
+firebase_url = secrets.access_secret_version(
+    "projects/324165056060/secrets/GoogleStorage-Connection/versions/1"
+).payload.data.decode("utf-8")
+firebase_db_url = secrets.access_secret_version(
+    "projects/324165056060/secrets/FirebaseDB-Connection/versions/1"
+).payload.data.decode("utf-8")
+firebase = firebase.FirebaseApplication(firebase_db_url)
+storage_client = storage.Client()
+bucket = storage_client.get_bucket(firebase_url)
+mongo_url = secrets.access_secret_version(
     "projects/324165056060/secrets/MongoDB-Connection/versions/1"
 ).payload.data.decode("utf-8")
 # make sure url exists
-if not url:
+if not mongo_url:
     flash("Error: failed to get mongoDB connection string", "danger")
 else:
     # set-up client object and connect to cluster using url
-    client = pymongo.MongoClient(url)
+    client = pymongo.MongoClient(mongo_url)
 
 # connect to the db
 db = client.advancedDev
@@ -34,25 +45,8 @@ db = client.advancedDev
 @app.route("/")
 def root():
     # Verify Firebase auth.
-    id_token = request.cookies.get("token")
-    claims = None
+    claims = Authenticate()
     time = None
-
-    if id_token:
-        try:
-            # Verify the token against the Firebase Auth API. This example
-            # verifies the token on each page load. For improved performance,
-            # some applications may wish to cache results in an encrypted
-            # session store (see for instance
-            # http://flask.pocoo.org/docs/1.0/quickstart/#sessions).
-            claims = google.oauth2.id_token.verify_firebase_token(
-                id_token, firebase_request_adapter
-            )
-            time = fetch_time(claims["email"])
-        except ValueError as exc:
-            # This will be raised if the token is expired or any other
-            # verification checks fail
-            flash(str(exc), "danger")
 
     return render_template("index.html", user_data=claims, time=time)
 
@@ -92,27 +86,10 @@ IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 @app.route("/uploadfile", methods=["GET", "POST"])
 def upload_file():
     # Verify Firebase auth.
-    id_token = request.cookies.get("token")
-    claims = None
+    claims = Authenticate()
     # new_post is for when an upload has been made, to show the view post link
     new_post_url = None
 
-    if id_token:
-        try:
-            # Verify the token against the Firebase Auth API. This example
-            # verifies the token on each page load. For improved performance,
-            # some applications may wish to cache results in an encrypted
-            # session store (see for instance
-            # http://flask.pocoo.org/docs/1.0/quickstart/#sessions)
-            claims = google.oauth2.id_token.verify_firebase_token(
-                id_token, firebase_request_adapter
-            )
-        except ValueError as exc:
-            # This will be raised if the token is expired or any other
-            # verification checks fail.
-            flash(str(exc), "danger")
-    else:
-        return redirect("/")
     if request.method == "POST":
         title = request.form["title"]
         description = request.form["description"]
@@ -134,15 +111,24 @@ def upload_file():
                     "Error, invalid file uploaded, must be png, jpg or jpeg.", "danger"
                 )
                 return redirect(request.url)
-
-            image_path = ""
+            # get blob to upload image to google cloud storage gallery folder through firebase
+            imageBlob = bucket.blob("/gallery")
+            bytes = file.read()
+            imageBlob.upload_from_string(bytes)
+            # public url has two / at the end when we need / so substring off last char
+            image_path = (
+                imageBlob.public_url[0 : len(imageBlob.public_url) - 1] + file.filename
+            )
+            # Create gallery post with path to the firebase storage image
             gallery_post = {
+                "name": claims["name"],
                 "email": claims["email"],
                 "title": title,
                 "description": description,
                 "imagePath": image_path,
             }
             post_id = db.gallery.insert_one(gallery_post).inserted_id
+            print("POST ID - " + str(post_id))
             message = Markup(
                 'Successfully uploaded your photo to our gallery. Click <a href="/gallery/'
                 + str(post_id)
@@ -162,21 +148,18 @@ def upload_file():
     )
 
 
+# [END upload form code]
+
 # Check if an allowed file extension
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in IMAGE_EXTENSIONS
 
 
-# [END upload form code]
-
-# [START upload post request]
-
 # [START gallery view code]
 @app.route("/gallery")
 def gallery():
     # Get paged gallery data and display to users
-    id_token = request.cookies.get("token")
-    claims = None
+    claims = Authenticate()
     results = None
     items_per_page = 9
     page = 1
@@ -186,23 +169,6 @@ def gallery():
     # Check the page number is more than 0
     if page <= 0:
         page = 1
-
-    if id_token:
-        try:
-            # Verify the token against the Firebase Auth API. This example
-            # verifies the token on each page load. For improved performance,
-            # some applications may wish to cache results in an encrypted
-            # session store (see for instance
-            # http://flask.pocoo.org/docs/1.0/quickstart/#sessions)
-            claims = google.oauth2.id_token.verify_firebase_token(
-                id_token, firebase_request_adapter
-            )
-        except ValueError as exc:
-            # This will be raised if the token is expired or any other
-            # verification checks fail.
-            flash(str(exc), "danger")
-    else:
-        return redirect("/")
 
     start_num = 0
     end_num = items_per_page
@@ -221,12 +187,63 @@ def gallery():
 # [START individual gallery post view ]
 
 
-@app.route("gallery/<post-id>")
-def gallery_post(post_id):
-    post_id = 0
+@app.route("/gallery/<postid>")
+def gallery_post(postid):
+    claims = Authenticate()
+    post = db.gallery.find_one({"_id": ObjectId(postid)})
+    if not post:
+        flash(
+            "Error, couldn't find post with id '" + postid + "', please try again.",
+            "danger",
+        )
+        redirect("/gallery")
+
+    return render_template("gallery_post.html", user_data=claims, post=post)
 
 
 # [END individual gallery post view ]
+
+# [START Authentication check]
+
+
+def Authenticate():
+    id_token = request.cookies.get("token")
+    if id_token:
+        try:
+            # Verify the ID token while checking if the token is revoked by
+            # passing check_revoked=True.
+            decoded_token = auth.verify_id_token(id_token, check_revoked=True)
+            # Token is valid and not revoked.
+            uid = decoded_token["uid"]
+        except auth.RevokedIdTokenError:
+            # Token revoked, inform the user to reauthenticate or signOut().
+            pass
+        except auth.InvalidIdTokenError:
+            # Token is invalid
+            flash(
+                "Error, invalid authentication token please sign out or re-authenticate.",
+                "danger",
+            )
+            pass
+        try:
+            # Verify the token against the Firebase Auth API. This example
+            # verifies the token on each page load. For improved performance,
+            # some applications may wish to cache results in an encrypted
+            # session store (see for instance
+            # http://flask.pocoo.org/docs/1.0/quickstart/#sessions)
+            return google.oauth2.id_token.verify_firebase_token(
+                id_token, firebase_request_adapter
+            )
+        except ValueError as exc:
+            # This will be raised if the token is expired or any other
+            # verification checks fail.
+            flash(str(exc), "danger")
+    else:
+        return redirect("/")
+
+
+# [END Authentication check]
+
 
 if __name__ == "__main__":
     # Used when running locally only, when deploying to GAE a webserver serves the app

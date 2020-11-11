@@ -1,8 +1,15 @@
 Flask==1.1.2
 python-dotenv==0.15.0
 google-cloud-datastore==1.15.3
+google-cloud-storage
 google-auth==1.22.1
 firebase
+firebase_admin
+pycryptodome
+gcloud
+sseclient
+requests-toolbelt
+python_jwt
 requests==2.24.0
 black
 pymongo==3.9.0 
