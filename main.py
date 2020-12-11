@@ -47,6 +47,8 @@ def root():
     # Verify Firebase auth.
     claims = Authenticate()
     time = None
+    if claims != None:
+        time = fetch_time(claims["email"])
 
     return render_template("index.html", user_data=claims, time=time)
 
