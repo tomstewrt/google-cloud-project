@@ -70,6 +70,7 @@ def fetch_time(email):
     ancestor = datastore_client.key("User", email)
     query = datastore_client.query(kind="visit", ancestor=ancestor)
     result = list(query.fetch(limit=1))
+    print(result)
     time = datetime.datetime.now()
     # If first visit store time
     if len(result) == 0:
@@ -210,11 +211,7 @@ def Authenticate():
     id_token = request.cookies.get("token")
     if id_token:
         try:
-            # Verify the token against the Firebase Auth API. This example
-            # verifies the token on each page load. For improved performance,
-            # some applications may wish to cache results in an encrypted
-            # session store (see for instance
-            # http://flask.pocoo.org/docs/1.0/quickstart/#sessions)
+            # Verify the token against the Firebase Auth API
             return google.oauth2.id_token.verify_firebase_token(
                 id_token, firebase_request_adapter
             )
@@ -222,8 +219,8 @@ def Authenticate():
             # This will be raised if the token is expired or any other
             # verification checks fail.
             flash(str(exc), "danger")
-    else:
-        return redirect("/")
+
+    return None
 
 
 # [END Authentication check]
@@ -231,4 +228,4 @@ def Authenticate():
 
 if __name__ == "__main__":
     # Used when running locally only, when deploying to GAE a webserver serves the app
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    app.run(host="127.0.0.1", port=8080, debug=True)
