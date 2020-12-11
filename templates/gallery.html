@@ -3,20 +3,26 @@
 <div class="container">
     <h1 class="text-center">Gallery</h1>
     {% if results.count() > 0 %}
+    {% for item in results %}
+    {% if loop.index0 % 3 == 0 %}
     <div class="row">
-        <div class="col-4">
-            <div class="container">
-                <img src="" alt="">
+        {%endif %}
+        <div class="col-lg-4 col-md-6 col-sm-12">
+            <div class="card" style="width: 18rem;">
+                <img class="card-img-top" src="{{item.imagePath}}" alt="Card image cap">
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.title }}</h5>
+                    <p class="card-text">{{ item.description }}</p>
+                    <a href="/gallery/{{item._id}}" class="btn btn-primary">View Post</a>
+                </div>
             </div>
         </div>
-        <div class="col-4">
-
-        </div>
-        <div class="col-4">
-
-        </div>
+        {% if loop.index0 % 3 == 2 or loop.index0 == results.count() - 1 %}
     </div>
     {% endif %}
-</div>
+    {% endfor %}
+    {% endif %}
 
-{% include 'footer.html' %}
+
+
+    {% include 'footer.html' %}

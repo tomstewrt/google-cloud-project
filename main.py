@@ -164,8 +164,8 @@ def gallery():
     items_per_page = 9
     page = 1
     # Set the page number to 1, unless its already been
-    if request.args["page"] != None:
-        page = request.args["page"]
+    if request.args.get("page") != None:
+        page = request.args.get("page")
     # Check the page number is more than 0
     if page <= 0:
         page = 1
@@ -209,22 +209,6 @@ def gallery_post(postid):
 def Authenticate():
     id_token = request.cookies.get("token")
     if id_token:
-        try:
-            # Verify the ID token while checking if the token is revoked by
-            # passing check_revoked=True.
-            decoded_token = auth.verify_id_token(id_token, check_revoked=True)
-            # Token is valid and not revoked.
-            uid = decoded_token["uid"]
-        except auth.RevokedIdTokenError:
-            # Token revoked, inform the user to reauthenticate or signOut().
-            pass
-        except auth.InvalidIdTokenError:
-            # Token is invalid
-            flash(
-                "Error, invalid authentication token please sign out or re-authenticate.",
-                "danger",
-            )
-            pass
         try:
             # Verify the token against the Firebase Auth API. This example
             # verifies the token on each page load. For improved performance,

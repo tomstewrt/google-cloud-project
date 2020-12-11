@@ -1,11 +1,14 @@
 {% include 'header.html' %}
 
-<div class="container text-center">
-    <h2>{{ post['title'] }}</h2>
-    <img src="{{post['imagePath']}}" alt="post image">
+<div class="container  mt-4">
+    <a class="btn btn-primary" href="javascript:history.back()">Go Back</a>
+    <div class="post text-center">
+        <h2>{{ post['title'] }}</h2>
+        <img src="{{post['imagePath']}}" alt="post image">
 
-    <h5>Description:</h5>
-    <p>{{ post['description'] }}</p>
+        <h5>Description:</h5>
+        <p>{{ post['description'] }}</p>
+    </div>
 </div>
 
 {% include 'footer.html' %}
