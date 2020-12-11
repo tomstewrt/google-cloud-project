@@ -111,24 +111,22 @@ def upload_file():
                     "Error, invalid file uploaded, must be png, jpg or jpeg.", "danger"
                 )
                 return redirect(request.url)
-            # get blob to upload image to google cloud storage gallery folder through firebase
-            imageBlob = bucket.blob("/gallery")
-            bytes = file.read()
-            imageBlob.upload_from_string(bytes)
             # public url has two / at the end when we need / so substring off last char
-            image_path = (
-                imageBlob.public_url[0 : len(imageBlob.public_url) - 1] + file.filename
-            )
             # Create gallery post with path to the firebase storage image
             gallery_post = {
                 "name": claims["name"],
                 "email": claims["email"],
                 "title": title,
                 "description": description,
-                "imagePath": image_path,
             }
             post_id = db.gallery.insert_one(gallery_post).inserted_id
             print("POST ID - " + str(post_id))
+            # get blob to upload image to google cloud storage gallery folder through firebase
+            imageBlob = bucket.blob("gallery/" + str(post_id))
+            bytes = file.read()
+            imageBlob.upload_from_string(bytes)
+            imagePath = imageBlob.public_url
+            db.gallery.update_one({"_id": post_id}, {"$set": {"imagePath": imagePath}})
             message = Markup(
                 'Successfully uploaded your photo to our gallery. Click <a href="/gallery/'
                 + str(post_id)
@@ -231,4 +229,4 @@ def Authenticate():
 
 if __name__ == "__main__":
     # Used when running locally only, when deploying to GAE a webserver serves the app
-    app.run(host="127.0.0.1", port=8080, debug=True)
+    app.run(host="0.0.0.0", port=8080, debug=True)
